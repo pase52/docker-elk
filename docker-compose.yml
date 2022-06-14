@@ -84,6 +84,52 @@ services:
     depends_on:
       - elasticsearch
 
+  #Fleet
+  elastic-agent:
+    build:
+      context: elastic-agent/
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    container_name: elastic-agent
+    restart: always
+    user: root # note, synthetic browser monitors require this set to `elastic-agent`
+    environment:
+      FLEET_SERVER_ENABLE: true
+      FLEET_SERVER_ELASTICSEARCH_HOST: http://elasticsearch:9200
+      FLEET_SERVER_SERVICE_TOKEN: AAEAAWVsYXN0aWMvZmxlZXQtc2VydmVyL3Rva2VuLTE2NTUxOTkxMTU2NjA6MXF1OUxreWtSN2kzTU1BUUFDbWVPQQ
+      FLEET_SERVER_POLICY_ID: fleet-server-policy
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+    
+  # Metricbeat
+  metricbeat:
+    build:
+      context: metricbeat/
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+      - /proc:/hostfs/proc:ro
+      - /:/hostfs:ro
+    environment:
+      - ELASTICSEARCH_HOST=${ELASTICSEARCH_HOST:-http://elasticsearch:9200}
+      - KIBANA_HOST=${KIBANA_HOST:-http://localhost:5601}
+      - ELASTICSEARCH_USERNAME=${ELASTICSEARCH_USERNAME:-elastic}
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD:-changeme}
+    command: ["--strict.perms=false", "-system.hostfs=/hostfs"]
+    container_name: metricbeat
+    restart: always
+    user: root
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
 networks:
   elk:
     driver: bridge
